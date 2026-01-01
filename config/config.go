@@ -54,17 +54,6 @@ type LoggerConfig struct {
 	OutputPath string `yaml:"output_path"`
 }
 
-type ClickHouseConfig struct {
-	Host         string `yaml:"host"`
-	Port         int    `yaml:"port"`
-	Database     string `yaml:"database"`
-	Username     string `yaml:"username"`
-	Password     string `yaml:"password"`
-	MaxOpenConns int    `yaml:"max_open_conns"`
-	MaxIdleConns int    `yaml:"max_idle_conns"`
-	Debug        bool   `yaml:"debug"`
-}
-
 type RedisConfig struct {
 	Enabled      bool   `yaml:"enabled"`
 	Host         string `yaml:"host"`
@@ -76,16 +65,6 @@ type RedisConfig struct {
 	ReadTimeout  int    `yaml:"read_timeout"`
 	WriteTimeout int    `yaml:"write_timeout"`
 	PoolSize     int    `yaml:"pool_size"`
-}
-
-type S3Config struct {
-	Enabled         bool   `yaml:"enabled"`
-	Region          string `yaml:"region"`
-	Endpoint        string `yaml:"endpoint"`
-	AccessKeyID     string `yaml:"access_key_id"`
-	SecretAccessKey string `yaml:"secret_access_key"`
-	UsePathStyle    bool   `yaml:"use_path_style"`
-	Bucket          string `yaml:"bucket"`
 }
 
 func GetServerConfig(resolver *ConfigResolver) *ServerConfig {
@@ -126,19 +105,6 @@ func GetLoggerConfig(resolver *ConfigResolver) *LoggerConfig {
 	}
 }
 
-func GetClickHouseConfig(resolver *ConfigResolver) *ClickHouseConfig {
-	return &ClickHouseConfig{
-		Host:         resolver.GetString("clickhouse.host", "CLICKHOUSE_HOST", "localhost"),
-		Port:         resolver.GetInt("clickhouse.port", "CLICKHOUSE_PORT", 9000),
-		Database:     resolver.GetString("clickhouse.database", "CLICKHOUSE_DATABASE", "analytics"),
-		Username:     resolver.GetString("clickhouse.username", "CLICKHOUSE_USER", "default"),
-		Password:     resolver.GetString("clickhouse.password", "CLICKHOUSE_PASSWORD", ""),
-		MaxOpenConns: resolver.GetInt("clickhouse.max_open_conns", "CLICKHOUSE_MAX_OPEN_CONNS", 10),
-		MaxIdleConns: resolver.GetInt("clickhouse.max_idle_conns", "CLICKHOUSE_MAX_IDLE_CONNS", 5),
-		Debug:        resolver.GetBool("clickhouse.debug", "CLICKHOUSE_DEBUG", false),
-	}
-}
-
 func GetRedisConfig(resolver *ConfigResolver) *RedisConfig {
 	return &RedisConfig{
 		Enabled:      resolver.GetBool("redis.enabled", "REDIS_ENABLED", false),
@@ -151,18 +117,6 @@ func GetRedisConfig(resolver *ConfigResolver) *RedisConfig {
 		ReadTimeout:  resolver.GetInt("redis.read_timeout", "REDIS_READ_TIMEOUT", 3),
 		WriteTimeout: resolver.GetInt("redis.write_timeout", "REDIS_WRITE_TIMEOUT", 3),
 		PoolSize:     resolver.GetInt("redis.pool_size", "REDIS_POOL_SIZE", 10),
-	}
-}
-
-func GetS3Config(resolver *ConfigResolver) *S3Config {
-	return &S3Config{
-		Enabled:         resolver.GetBool("s3.enabled", "S3_ENABLED", false),
-		Region:          resolver.GetString("s3.region", "S3_REGION", ""),
-		Endpoint:        resolver.GetString("s3.endpoint", "S3_ENDPOINT", ""),
-		AccessKeyID:     resolver.GetString("s3.access_key_id", "S3_ACCESS_KEY_ID", ""),
-		SecretAccessKey: resolver.GetString("s3.secret_access_key", "S3_SECRET_ACCESS_KEY", ""),
-		UsePathStyle:    resolver.GetBool("s3.use_path_style", "S3_USE_PATH_STYLE", false),
-		Bucket:          resolver.GetString("s3.bucket", "S3_BUCKET", ""),
 	}
 }
 
