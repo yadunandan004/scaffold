@@ -8,66 +8,59 @@ import (
 	"github.com/yadunandan004/scaffold/logger"
 	"github.com/yadunandan004/scaffold/request"
 	"github.com/yadunandan004/scaffold/store/cache"
-
-	"github.com/google/uuid"
 )
 
-// ReadOnlyService - Interface for read-only service operations
-type ReadOnlyService[T BaseReadModel] interface {
-	GetByID(ctx request.Context, id uuid.UUID) (*T, error)
+type ReadOnlyService[T BaseReadModel[ID], ID IDType] interface {
+	GetByID(ctx request.Context, id ID) (*T, error)
 	Search(ctx request.Context, req *SearchRequest) ([]*T, error)
 }
 
-// InsertService - Interface for read + insert service operations
-type InsertService[T BaseInsertModel] interface {
-	ReadOnlyService[T]
+type InsertService[T BaseInsertModel[ID], ID IDType] interface {
+	ReadOnlyService[T, ID]
 	Create(ctx request.Context, entity *T) (*T, error)
 	CreateMultiple(ctx request.Context, entities []*T) ([]*T, error)
 }
 
-// BaseService - Full CRUD service operations
-type BaseService[T BaseModel] interface {
-	InsertService[T]
-	Update(ctx request.Context, id uuid.UUID, entity *T) (*T, error)
+type BaseService[T BaseModel[ID], ID IDType] interface {
+	InsertService[T, ID]
+	Update(ctx request.Context, id ID, entity *T) (*T, error)
 	UpdateMultiple(ctx request.Context, entities []*T) ([]*T, error)
-	Delete(ctx request.Context, id uuid.UUID) error
-	DeleteMultiple(ctx request.Context, ids []uuid.UUID) error
+	Delete(ctx request.Context, id ID) error
+	DeleteMultiple(ctx request.Context, ids []ID) error
 	Upsert(ctx request.Context, entity *T) (*T, error)
 }
 
-// ReadOnlyServiceImpl - Implementation for read-only service
-type ReadOnlyServiceImpl[T BaseReadModel] struct {
-	repository   ReadOnlyRepository[T]
+type ReadOnlyServiceImpl[T BaseReadModel[ID], ID IDType] struct {
+	repository   ReadOnlyRepository[T, ID]
 	cacheService cache.CacheService
 }
 
-func NewReadOnlyService[T BaseReadModel](repository ReadOnlyRepository[T]) *ReadOnlyServiceImpl[T] {
-	return &ReadOnlyServiceImpl[T]{repository: repository}
+func NewReadOnlyService[T BaseReadModel[ID], ID IDType](repository ReadOnlyRepository[T, ID]) *ReadOnlyServiceImpl[T, ID] {
+	return &ReadOnlyServiceImpl[T, ID]{repository: repository}
 }
 
-func NewReadOnlyServiceWithCache[T BaseReadModel](repository ReadOnlyRepository[T], cacheService cache.CacheService) *ReadOnlyServiceImpl[T] {
-	return &ReadOnlyServiceImpl[T]{
+func NewReadOnlyServiceWithCache[T BaseReadModel[ID], ID IDType](repository ReadOnlyRepository[T, ID], cacheService cache.CacheService) *ReadOnlyServiceImpl[T, ID] {
+	return &ReadOnlyServiceImpl[T, ID]{
 		repository:   repository,
 		cacheService: cacheService,
 	}
 }
 
-// InsertServiceImpl - Implementation for read + insert service
-type InsertServiceImpl[T BaseInsertModel] struct {
-	ReadOnlyServiceImpl[T]
-	repository InsertRepository[T]
+type InsertServiceImpl[T BaseInsertModel[ID], ID IDType] struct {
+	ReadOnlyServiceImpl[T, ID]
+	repository InsertRepository[T, ID]
 }
 
-func NewInsertService[T BaseInsertModel](repository InsertRepository[T]) *InsertServiceImpl[T] {
-	return &InsertServiceImpl[T]{
-		ReadOnlyServiceImpl: ReadOnlyServiceImpl[T]{repository: repository},
+func NewInsertService[T BaseInsertModel[ID], ID IDType](repository InsertRepository[T, ID]) *InsertServiceImpl[T, ID] {
+	return &InsertServiceImpl[T, ID]{
+		ReadOnlyServiceImpl: ReadOnlyServiceImpl[T, ID]{repository: repository},
 		repository:          repository,
 	}
 }
 
-func NewInsertServiceWithCache[T BaseInsertModel](repository InsertRepository[T], cacheService cache.CacheService) *InsertServiceImpl[T] {
-	return &InsertServiceImpl[T]{
-		ReadOnlyServiceImpl: ReadOnlyServiceImpl[T]{
+func NewInsertServiceWithCache[T BaseInsertModel[ID], ID IDType](repository InsertRepository[T, ID], cacheService cache.CacheService) *InsertServiceImpl[T, ID] {
+	return &InsertServiceImpl[T, ID]{
+		ReadOnlyServiceImpl: ReadOnlyServiceImpl[T, ID]{
 			repository:   repository,
 			cacheService: cacheService,
 		},
@@ -75,26 +68,25 @@ func NewInsertServiceWithCache[T BaseInsertModel](repository InsertRepository[T]
 	}
 }
 
-// BaseServiceImpl - Full CRUD service implementation
-type BaseServiceImpl[T BaseModel] struct {
-	InsertServiceImpl[T]
-	repository BaseRepository[T]
+type BaseServiceImpl[T BaseModel[ID], ID IDType] struct {
+	InsertServiceImpl[T, ID]
+	repository BaseRepository[T, ID]
 }
 
-func NewBaseService[T BaseModel](repository BaseRepository[T]) *BaseServiceImpl[T] {
-	return &BaseServiceImpl[T]{
-		InsertServiceImpl: InsertServiceImpl[T]{
-			ReadOnlyServiceImpl: ReadOnlyServiceImpl[T]{repository: repository},
+func NewBaseService[T BaseModel[ID], ID IDType](repository BaseRepository[T, ID]) *BaseServiceImpl[T, ID] {
+	return &BaseServiceImpl[T, ID]{
+		InsertServiceImpl: InsertServiceImpl[T, ID]{
+			ReadOnlyServiceImpl: ReadOnlyServiceImpl[T, ID]{repository: repository},
 			repository:          repository,
 		},
 		repository: repository,
 	}
 }
 
-func NewBaseServiceWithCache[T BaseModel](repository BaseRepository[T], cacheService cache.CacheService) *BaseServiceImpl[T] {
-	return &BaseServiceImpl[T]{
-		InsertServiceImpl: InsertServiceImpl[T]{
-			ReadOnlyServiceImpl: ReadOnlyServiceImpl[T]{
+func NewBaseServiceWithCache[T BaseModel[ID], ID IDType](repository BaseRepository[T, ID], cacheService cache.CacheService) *BaseServiceImpl[T, ID] {
+	return &BaseServiceImpl[T, ID]{
+		InsertServiceImpl: InsertServiceImpl[T, ID]{
+			ReadOnlyServiceImpl: ReadOnlyServiceImpl[T, ID]{
 				repository:   repository,
 				cacheService: cacheService,
 			},
@@ -104,22 +96,18 @@ func NewBaseServiceWithCache[T BaseModel](repository BaseRepository[T], cacheSer
 	}
 }
 
-// ReadOnlyServiceImpl methods
-func (s *ReadOnlyServiceImpl[T]) GetByID(ctx request.Context, id uuid.UUID) (*T, error) {
+func (s *ReadOnlyServiceImpl[T, ID]) GetByID(ctx request.Context, id ID) (*T, error) {
 	startTime := time.Now()
-	logger.LogInfo(ctx, "→ ENTER: GetByID(id: %s)", id)
+	logger.LogInfo(ctx, "→ ENTER: GetByID(id: %v)", id)
 	defer func() {
 		logger.LogInfo(ctx, "← EXIT: GetByID (duration: %v)", time.Since(startTime))
 	}()
 
 	var entity T
-	// Check if caching is enabled for this model
 	if s.cacheService != nil && entity.SaveInCache() {
-		// Try to get from cache first
 		cacheKey := s.getCacheKey(&entity, id)
 		cached, err := s.cacheService.Get(ctx.GetRequestContext().GetCtx(), cacheKey)
 		if err == nil && cached != nil {
-			// Unmarshal cached data
 			if data, ok := cached.(string); ok {
 				if err := json.Unmarshal([]byte(data), &entity); err == nil {
 					return &entity, nil
@@ -128,13 +116,11 @@ func (s *ReadOnlyServiceImpl[T]) GetByID(ctx request.Context, id uuid.UUID) (*T,
 		}
 	}
 
-	// Get from database
 	result, err := s.repository.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// Cache the result if caching is enabled
 	if s.cacheService != nil && (*result).SaveInCache() {
 		cacheKey := s.getCacheKey(result, id)
 		if data, err := json.Marshal(result); err == nil {
@@ -145,7 +131,7 @@ func (s *ReadOnlyServiceImpl[T]) GetByID(ctx request.Context, id uuid.UUID) (*T,
 	return result, nil
 }
 
-func (s *ReadOnlyServiceImpl[T]) Search(ctx request.Context, req *SearchRequest) ([]*T, error) {
+func (s *ReadOnlyServiceImpl[T, ID]) Search(ctx request.Context, req *SearchRequest) ([]*T, error) {
 	startTime := time.Now()
 	logger.LogInfo(ctx, "→ ENTER: Search(filters: %d)", len(req.Filters))
 	defer func() {
@@ -155,47 +141,38 @@ func (s *ReadOnlyServiceImpl[T]) Search(ctx request.Context, req *SearchRequest)
 	return s.repository.Search(ctx, req)
 }
 
-// getCacheKey generates a cache key for the entity
-func (s *ReadOnlyServiceImpl[T]) getCacheKey(entity *T, id uuid.UUID) string {
-	return fmt.Sprintf("%s:%s", (*entity).TableName(), id.String())
+func (s *ReadOnlyServiceImpl[T, ID]) getCacheKey(entity *T, id ID) string {
+	return fmt.Sprintf("%s:%v", (*entity).TableName(), id)
 }
 
-// InsertServiceImpl methods
-func (s *InsertServiceImpl[T]) Create(ctx request.Context, entity *T) (*T, error) {
-
+func (s *InsertServiceImpl[T, ID]) Create(ctx request.Context, entity *T) (*T, error) {
 	if err := s.repository.Create(ctx, entity); err != nil {
 		return nil, err
 	}
 
-	// Cache the created entity if caching is enabled
 	if s.cacheService != nil && (*entity).SaveInCache() {
-		// Get ID using reflection (assuming BaseModelImpl)
-		if id := s.getEntityID(entity); id != uuid.Nil {
-			cacheKey := s.getCacheKey(entity, id)
-			if data, err := json.Marshal(entity); err == nil {
-				_ = s.cacheService.Set(ctx.GetRequestContext().GetCtx(), cacheKey, string(data), 5*time.Minute)
-			}
+		id := (*entity).GetID()
+		cacheKey := s.getCacheKey(entity, id)
+		if data, err := json.Marshal(entity); err == nil {
+			_ = s.cacheService.Set(ctx.GetRequestContext().GetCtx(), cacheKey, string(data), 5*time.Minute)
 		}
 	}
 
 	return entity, nil
 }
 
-func (s *InsertServiceImpl[T]) CreateMultiple(ctx request.Context, entities []*T) ([]*T, error) {
+func (s *InsertServiceImpl[T, ID]) CreateMultiple(ctx request.Context, entities []*T) ([]*T, error) {
 	if err := s.repository.CreateMultiple(ctx, entities); err != nil {
 		return nil, err
 	}
 	return entities, nil
 }
 
-// BaseServiceImpl methods (full CRUD)
-func (s *BaseServiceImpl[T]) Update(ctx request.Context, id uuid.UUID, entity *T) (*T, error) {
-
+func (s *BaseServiceImpl[T, ID]) Update(ctx request.Context, id ID, entity *T) (*T, error) {
 	if err := s.repository.Update(ctx, entity); err != nil {
 		return nil, err
 	}
 
-	// Update cache if caching is enabled
 	if s.cacheService != nil && (*entity).SaveInCache() {
 		cacheKey := s.getCacheKey(entity, id)
 		if data, err := json.Marshal(entity); err == nil {
@@ -206,30 +183,28 @@ func (s *BaseServiceImpl[T]) Update(ctx request.Context, id uuid.UUID, entity *T
 	return entity, nil
 }
 
-func (s *BaseServiceImpl[T]) UpdateMultiple(ctx request.Context, entities []*T) ([]*T, error) {
+func (s *BaseServiceImpl[T, ID]) UpdateMultiple(ctx request.Context, entities []*T) ([]*T, error) {
 	if err := s.repository.UpdateMultiple(ctx, entities); err != nil {
 		return nil, err
 	}
 	return entities, nil
 }
 
-func (s *BaseServiceImpl[T]) Delete(ctx request.Context, id uuid.UUID) error {
-	// First get the entity
+func (s *BaseServiceImpl[T, ID]) Delete(ctx request.Context, id ID) error {
 	entity, err := s.repository.GetByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get entity for deletion: %w", err)
 	}
 
-	// Delete from cache if caching is enabled
 	if s.cacheService != nil && (*entity).SaveInCache() {
-		cacheKey := fmt.Sprintf("%T:%s", *entity, id.String())
+		cacheKey := fmt.Sprintf("%T:%v", *entity, id)
 		_ = s.cacheService.Delete(ctx.GetRequestContext().GetCtx(), cacheKey)
 	}
 
 	return s.repository.Delete(ctx, entity)
 }
 
-func (s *BaseServiceImpl[T]) DeleteMultiple(ctx request.Context, ids []uuid.UUID) error {
+func (s *BaseServiceImpl[T, ID]) DeleteMultiple(ctx request.Context, ids []ID) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -238,7 +213,7 @@ func (s *BaseServiceImpl[T]) DeleteMultiple(ctx request.Context, ids []uuid.UUID
 	for _, id := range ids {
 		entity, err := s.repository.GetByID(ctx, id)
 		if err != nil {
-			return fmt.Errorf("failed to get entity %s for deletion: %w", id, err)
+			return fmt.Errorf("failed to get entity %v for deletion: %w", id, err)
 		}
 		entities = append(entities, entity)
 	}
@@ -246,13 +221,7 @@ func (s *BaseServiceImpl[T]) DeleteMultiple(ctx request.Context, ids []uuid.UUID
 	return s.repository.DeleteMultiple(ctx, entities)
 }
 
-// getEntityID extracts the ID from the entity using the GetID interface method
-func (s *InsertServiceImpl[T]) getEntityID(entity *T) uuid.UUID {
-	return (*entity).GetID()
-}
-
-// BaseServiceImpl methods (full CRUD)
-func (s *BaseServiceImpl[T]) Upsert(ctx request.Context, entity *T) (*T, error) {
+func (s *BaseServiceImpl[T, ID]) Upsert(ctx request.Context, entity *T) (*T, error) {
 	startTime := time.Now()
 	logger.LogInfo(ctx, "→ ENTER: Upsert")
 	defer func() {
@@ -263,14 +232,11 @@ func (s *BaseServiceImpl[T]) Upsert(ctx request.Context, entity *T) (*T, error) 
 		return nil, err
 	}
 
-	// Cache the upserted entity if caching is enabled
 	if s.cacheService != nil && (*entity).SaveInCache() {
-		// Get ID using reflection (assuming BaseModelImpl)
-		if id := s.getEntityID(entity); id != uuid.Nil {
-			cacheKey := s.getCacheKey(entity, id)
-			if data, err := json.Marshal(entity); err == nil {
-				_ = s.cacheService.Set(ctx.GetRequestContext().GetCtx(), cacheKey, string(data), 5*time.Minute)
-			}
+		id := (*entity).GetID()
+		cacheKey := s.getCacheKey(entity, id)
+		if data, err := json.Marshal(entity); err == nil {
+			_ = s.cacheService.Set(ctx.GetRequestContext().GetCtx(), cacheKey, string(data), 5*time.Minute)
 		}
 	}
 

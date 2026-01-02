@@ -7,18 +7,20 @@ import (
 	"github.com/google/uuid"
 )
 
-// BaseReadModel - Minimal interface for read-only operations
-type BaseReadModel interface {
+type IDType interface {
+	~int | ~int64 | ~string | uuid.UUID
+}
+
+type BaseReadModel[ID IDType] interface {
 	TableName() string
 	IsPostgresEnabled() bool
 	IsClickhouseEnabled() bool
 	SaveInCache() bool
+	GetID() ID
 }
 
-// BaseInsertModel - Interface for read + insert operations
-type BaseInsertModel interface {
-	BaseReadModel
-	GetID() uuid.UUID
+type BaseInsertModel[ID IDType] interface {
+	BaseReadModel[ID]
 	Validate(ctx request.Context) error
 	PreInsert(ctx request.Context) error
 	PostInsert(ctx request.Context) error
@@ -29,79 +31,64 @@ type BaseInsertModel interface {
 	UpdateColumns() []string
 }
 
-// BaseUpdateModel - Interface for read + insert + update operations
-type BaseUpdateModel interface {
-	BaseInsertModel
+type BaseUpdateModel[ID IDType] interface {
+	BaseInsertModel[ID]
 	PreUpdate(ctx request.Context) error
 	PostUpdate(ctx request.Context) error
 }
 
-// BaseDeleteModel - Interface for read + insert + update + delete operations
-type BaseDeleteModel interface {
-	BaseUpdateModel
+type BaseDeleteModel[ID IDType] interface {
+	BaseUpdateModel[ID]
 	PreDelete(ctx request.Context) error
 	PostDelete(ctx request.Context) error
 }
 
-// BaseCompleteModel - Full CRUD interface (alias for BaseDeleteModel)
-type BaseCompleteModel interface {
-	BaseDeleteModel
+type BaseCompleteModel[ID IDType] interface {
+	BaseDeleteModel[ID]
 }
 
-// BaseModel
-//
-//	@Description	Some Generic Body
-type BaseModel interface {
-	BaseInsertModel
+type BaseModel[ID IDType] interface {
+	BaseInsertModel[ID]
 	PreUpdate(ctx request.Context) error
 	PostUpdate(ctx request.Context) error
 	PreDelete(ctx request.Context) error
 	PostDelete(ctx request.Context) error
 }
 
-// BaseReadModelImpl - Minimal struct with only ID
-type BaseReadModelImpl struct {
-	ID uuid.UUID `json:"id" orm:"column:id;type:uuid;pk"`
+type BaseReadModelImpl[ID IDType] struct {
+	ID ID `json:"id" orm:"column:id;pk"`
 }
 
-// BaseInsertModelImpl - Struct with ID and creation fields
-type BaseInsertModelImpl struct {
-	BaseReadModelImpl
+type BaseInsertModelImpl[ID IDType] struct {
+	BaseReadModelImpl[ID]
 	CreatedAt time.Time `json:"created_at" orm:"column:created_at;default:CURRENT_TIMESTAMP"`
 	CreatedBy *string   `json:"created_by,omitempty" orm:"column:created_by;type:varchar(100);nullable"`
 }
 
-// BaseModelImpl provides a default implementation of BaseModel
-type BaseModelImpl struct {
-	ID        uuid.UUID  `json:"id" orm:"column:id;type:uuid;default:uuid_generate_v4();pk"`
+type BaseModelImpl[ID IDType] struct {
+	ID        ID         `json:"id" orm:"column:id;pk"`
 	CreatedAt time.Time  `json:"created_at" orm:"column:created_at;default:CURRENT_TIMESTAMP"`
 	UpdatedAt time.Time  `json:"updated_at" orm:"column:updated_at;default:CURRENT_TIMESTAMP"`
 	DeletedAt *time.Time `json:"-" orm:"column:deleted_at;nullable"`
 }
 
-// GetID returns the entity ID
-func (b *BaseModelImpl) GetID() uuid.UUID {
+func (b *BaseModelImpl[ID]) GetID() ID {
 	return b.ID
 }
 
-// SaveTracker returns false by default - override in specific models if needed
-func (b *BaseModelImpl) SaveTracker() bool {
+func (b *BaseModelImpl[ID]) SaveTracker() bool {
 	return false
 }
 
-// SaveInCache returns false by default - override in specific models if needed
-func (b *BaseModelImpl) SaveInCache() bool {
+func (b *BaseModelImpl[ID]) SaveInCache() bool {
 	return false
 }
 
-func (b *BaseModelImpl) Validate(ctx request.Context) error {
+func (b *BaseModelImpl[ID]) Validate(ctx request.Context) error {
 	return nil
 }
 
-func (b *BaseModelImpl) PreInsert(ctx request.Context) error {
-	if b.ID == uuid.Nil {
-		b.ID = uuid.New()
-	}
+func (b *BaseModelImpl[ID]) PreInsert(ctx request.Context) error {
 	if b.CreatedAt.IsZero() {
 		b.CreatedAt = time.Now()
 	}
@@ -111,109 +98,100 @@ func (b *BaseModelImpl) PreInsert(ctx request.Context) error {
 	return nil
 }
 
-func (b *BaseModelImpl) PostInsert(ctx request.Context) error {
+func (b *BaseModelImpl[ID]) PostInsert(ctx request.Context) error {
 	return nil
 }
 
-func (b *BaseModelImpl) PreUpdate(ctx request.Context) error {
+func (b *BaseModelImpl[ID]) PreUpdate(ctx request.Context) error {
 	b.UpdatedAt = time.Now()
 	return nil
 }
 
-func (b *BaseModelImpl) PostUpdate(ctx request.Context) error {
+func (b *BaseModelImpl[ID]) PostUpdate(ctx request.Context) error {
 	return nil
 }
 
-func (b *BaseModelImpl) PreDelete(ctx request.Context) error {
+func (b *BaseModelImpl[ID]) PreDelete(ctx request.Context) error {
 	return nil
 }
 
-func (b *BaseModelImpl) PostDelete(ctx request.Context) error {
+func (b *BaseModelImpl[ID]) PostDelete(ctx request.Context) error {
 	return nil
 }
 
-func (b *BaseModelImpl) MapToTracker(ctx request.Context) *Tracker {
+func (b *BaseModelImpl[ID]) MapToTracker(ctx request.Context) *Tracker {
 	return nil
 }
 
-func (b *BaseModelImpl) TrackerTableName() string {
+func (b *BaseModelImpl[ID]) TrackerTableName() string {
 	return ""
 }
 
-// IsPostgresEnabled returns true by default - override in specific models if needed
-func (b *BaseModelImpl) IsPostgresEnabled() bool {
+func (b *BaseModelImpl[ID]) IsPostgresEnabled() bool {
 	return true
 }
 
-// IsClickhouseEnabled returns false by default - override in specific models if needed
-func (b *BaseModelImpl) IsClickhouseEnabled() bool {
+func (b *BaseModelImpl[ID]) IsClickhouseEnabled() bool {
 	return false
 }
 
-// OnConflict returns empty by default - override in specific models to specify conflict fields
-func (b *BaseModelImpl) OnConflict() []string {
+func (b *BaseModelImpl[ID]) OnConflict() []string {
 	return []string{}
 }
 
-// UpdateColumns returns nil by default - override to control upsert behavior
-func (b *BaseModelImpl) UpdateColumns() []string {
+func (b *BaseModelImpl[ID]) UpdateColumns() []string {
 	return nil
 }
 
-// BaseReadModelImpl methods
-func (b *BaseReadModelImpl) TableName() string {
+func (b *BaseReadModelImpl[ID]) TableName() string {
 	return ""
 }
 
-func (b *BaseReadModelImpl) GetID() uuid.UUID {
+func (b *BaseReadModelImpl[ID]) GetID() ID {
 	return b.ID
 }
 
-func (b *BaseReadModelImpl) IsPostgresEnabled() bool {
+func (b *BaseReadModelImpl[ID]) IsPostgresEnabled() bool {
 	return true
 }
 
-func (b *BaseReadModelImpl) IsClickhouseEnabled() bool {
+func (b *BaseReadModelImpl[ID]) IsClickhouseEnabled() bool {
 	return false
 }
 
-func (b *BaseReadModelImpl) SaveInCache() bool {
+func (b *BaseReadModelImpl[ID]) SaveInCache() bool {
 	return false
 }
 
-// BaseInsertModelImpl methods
-func (b *BaseInsertModelImpl) Validate(ctx request.Context) error {
+func (b *BaseInsertModelImpl[ID]) Validate(ctx request.Context) error {
 	return nil
 }
 
-func (b *BaseInsertModelImpl) PreInsert(ctx request.Context) error {
-	if b.ID == uuid.Nil {
-		b.ID = uuid.New()
-	}
+func (b *BaseInsertModelImpl[ID]) PreInsert(ctx request.Context) error {
 	return nil
 }
 
-func (b *BaseInsertModelImpl) PostInsert(ctx request.Context) error {
+func (b *BaseInsertModelImpl[ID]) PostInsert(ctx request.Context) error {
 	return nil
 }
 
-func (b *BaseInsertModelImpl) SaveTracker() bool {
+func (b *BaseInsertModelImpl[ID]) SaveTracker() bool {
 	return false
 }
 
-func (b *BaseInsertModelImpl) MapToTracker(ctx request.Context) *Tracker {
+func (b *BaseInsertModelImpl[ID]) MapToTracker(ctx request.Context) *Tracker {
 	return nil
 }
 
-func (b *BaseInsertModelImpl) TrackerTableName() string {
+func (b *BaseInsertModelImpl[ID]) TrackerTableName() string {
 	return ""
 }
 
-func (b *BaseInsertModelImpl) OnConflict() []string {
+func (b *BaseInsertModelImpl[ID]) OnConflict() []string {
 	return []string{}
 }
 
-func (b *BaseInsertModelImpl) UpdateColumns() []string {
+func (b *BaseInsertModelImpl[ID]) UpdateColumns() []string {
 	return nil
 }
 

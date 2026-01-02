@@ -91,7 +91,7 @@ func TestBaseService_Create(t *testing.T) {
 	description := "Test Create"
 	amount := 50.0
 	sample := &TestSample{
-		BaseModelImpl: BaseModelImpl{
+		BaseModelImpl: BaseModelImpl[uuid.UUID]{
 			ID:        uuid.New(),
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
@@ -222,7 +222,7 @@ func TestBaseService_CreateMultiple(t *testing.T) {
 
 	samples := []*TestSample{
 		{
-			BaseModelImpl: BaseModelImpl{
+			BaseModelImpl: BaseModelImpl[uuid.UUID]{
 				ID:        uuid.New(),
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
@@ -236,7 +236,7 @@ func TestBaseService_CreateMultiple(t *testing.T) {
 			Metadata:    JSONB{},
 		},
 		{
-			BaseModelImpl: BaseModelImpl{
+			BaseModelImpl: BaseModelImpl[uuid.UUID]{
 				ID:        uuid.New(),
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),

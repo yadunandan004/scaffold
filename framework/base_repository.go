@@ -6,53 +6,44 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/google/uuid"
-
 	"github.com/yadunandan004/scaffold/orm"
 	injContext "github.com/yadunandan004/scaffold/request"
 )
 
-// Context is an alias for the injector request
 type Context = injContext.Context
 
-// ReadOnlyRepository - Interface for read-only operations
-type ReadOnlyRepository[T BaseReadModel] interface {
-	GetByID(ctx Context, id uuid.UUID) (*T, error)
+type ReadOnlyRepository[T BaseReadModel[ID], ID IDType] interface {
+	GetByID(ctx Context, id ID) (*T, error)
 	Search(ctx Context, req *SearchRequest) ([]*T, error)
 }
 
-// InsertRepository - Interface for read + insert operations
-type InsertRepository[T BaseInsertModel] interface {
-	ReadOnlyRepository[T]
+type InsertRepository[T BaseInsertModel[ID], ID IDType] interface {
+	ReadOnlyRepository[T, ID]
 	Create(ctx Context, entity *T) error
 	CreateMultiple(ctx Context, entities []*T) error
 }
 
-// UpdateRepository - Interface for read + insert + update operations
-type UpdateRepository[T BaseUpdateModel] interface {
-	InsertRepository[T]
+type UpdateRepository[T BaseUpdateModel[ID], ID IDType] interface {
+	InsertRepository[T, ID]
 	Update(ctx Context, entity *T) error
 	UpdateMultiple(ctx Context, entities []*T) error
 }
 
-// DeleteRepository - Interface for read + insert + update + delete operations
-type DeleteRepository[T BaseDeleteModel] interface {
-	UpdateRepository[T]
+type DeleteRepository[T BaseDeleteModel[ID], ID IDType] interface {
+	UpdateRepository[T, ID]
 	Delete(ctx Context, entity *T) error
 	DeleteMultiple(ctx Context, entities []*T) error
 }
 
-// BaseRepository - Full CRUD operations
-type BaseRepository[T BaseCompleteModel] interface {
-	DeleteRepository[T]
+type BaseRepository[T BaseCompleteModel[ID], ID IDType] interface {
+	DeleteRepository[T, ID]
 	Upsert(ctx Context, entity *T) error
 }
 
-// PostgresReadOnlyRepository - Implementation for read-only operations using custom ORM
-type PostgresReadOnlyRepository[T BaseReadModel] struct{}
+type PostgresReadOnlyRepository[T BaseReadModel[ID], ID IDType] struct{}
 
-func NewPostgresReadOnlyRepository[T BaseReadModel]() *PostgresReadOnlyRepository[T] {
-	return &PostgresReadOnlyRepository[T]{}
+func NewPostgresReadOnlyRepository[T BaseReadModel[ID], ID IDType]() *PostgresReadOnlyRepository[T, ID] {
+	return &PostgresReadOnlyRepository[T, ID]{}
 }
 
 func getExecutor[T any](ctx Context) interface{} {
@@ -68,7 +59,7 @@ func getExecutor[T any](ctx Context) interface{} {
 	return orm.NewDB[T](db.DB)
 }
 
-func (r *PostgresReadOnlyRepository[T]) GetByID(ctx Context, id uuid.UUID) (*T, error) {
+func (r *PostgresReadOnlyRepository[T, ID]) GetByID(ctx Context, id ID) (*T, error) {
 	var entity T
 	executor := getExecutor[T](ctx)
 	if executor == nil {
@@ -89,7 +80,7 @@ func (r *PostgresReadOnlyRepository[T]) GetByID(ctx Context, id uuid.UUID) (*T, 
 	return &entity, err
 }
 
-func (r *PostgresReadOnlyRepository[T]) Search(ctx Context, req *SearchRequest) ([]*T, error) {
+func (r *PostgresReadOnlyRepository[T, ID]) Search(ctx Context, req *SearchRequest) ([]*T, error) {
 	var entity T
 	tableName := entity.TableName()
 
@@ -120,16 +111,15 @@ func (r *PostgresReadOnlyRepository[T]) Search(ctx Context, req *SearchRequest) 
 	return db.FindByQuery(ctx.GetCtx(), query, args...)
 }
 
-// PostgresInsertRepository - Implementation for read + insert operations using custom ORM
-type PostgresInsertRepository[T BaseInsertModel] struct {
-	PostgresReadOnlyRepository[T]
+type PostgresInsertRepository[T BaseInsertModel[ID], ID IDType] struct {
+	PostgresReadOnlyRepository[T, ID]
 }
 
-func NewPostgresInsertRepository[T BaseInsertModel]() *PostgresInsertRepository[T] {
-	return &PostgresInsertRepository[T]{}
+func NewPostgresInsertRepository[T BaseInsertModel[ID], ID IDType]() *PostgresInsertRepository[T, ID] {
+	return &PostgresInsertRepository[T, ID]{}
 }
 
-func (r *PostgresInsertRepository[T]) Create(ctx Context, entity *T) error {
+func (r *PostgresInsertRepository[T, ID]) Create(ctx Context, entity *T) error {
 	if err := (*entity).PreInsert(ctx); err != nil {
 		return err
 	}
@@ -168,12 +158,11 @@ func (r *PostgresInsertRepository[T]) Create(ctx Context, entity *T) error {
 	return (*entity).PostInsert(ctx)
 }
 
-func (r *PostgresInsertRepository[T]) CreateMultiple(ctx Context, entities []*T) error {
+func (r *PostgresInsertRepository[T, ID]) CreateMultiple(ctx Context, entities []*T) error {
 	if len(entities) == 0 {
 		return nil
 	}
 
-	// Pre-insert hooks
 	for _, entity := range entities {
 		if err := (*entity).PreInsert(ctx); err != nil {
 			return fmt.Errorf("pre-insert failed: %w", err)
@@ -210,7 +199,7 @@ func (r *PostgresInsertRepository[T]) CreateMultiple(ctx Context, entities []*T)
 	return nil
 }
 
-func (r *PostgresInsertRepository[T]) createTracker(ctx Context, tracker interface{}, tableName string) error {
+func (r *PostgresInsertRepository[T, ID]) createTracker(ctx Context, tracker interface{}, tableName string) error {
 	if tracker == nil {
 		return nil
 	}
@@ -242,16 +231,15 @@ func (r *PostgresInsertRepository[T]) createTracker(ctx Context, tracker interfa
 	return err
 }
 
-// PostgresUpdateRepository - Implementation for read + insert + update operations
-type PostgresUpdateRepository[T BaseUpdateModel] struct {
-	PostgresInsertRepository[T]
+type PostgresUpdateRepository[T BaseUpdateModel[ID], ID IDType] struct {
+	PostgresInsertRepository[T, ID]
 }
 
-func NewPostgresUpdateRepository[T BaseUpdateModel]() *PostgresUpdateRepository[T] {
-	return &PostgresUpdateRepository[T]{}
+func NewPostgresUpdateRepository[T BaseUpdateModel[ID], ID IDType]() *PostgresUpdateRepository[T, ID] {
+	return &PostgresUpdateRepository[T, ID]{}
 }
 
-func (r *PostgresUpdateRepository[T]) Update(ctx Context, entity *T) error {
+func (r *PostgresUpdateRepository[T, ID]) Update(ctx Context, entity *T) error {
 	if err := (*entity).PreUpdate(ctx); err != nil {
 		return err
 	}
@@ -290,7 +278,7 @@ func (r *PostgresUpdateRepository[T]) Update(ctx Context, entity *T) error {
 	return (*entity).PostUpdate(ctx)
 }
 
-func (r *PostgresUpdateRepository[T]) UpdateMultiple(ctx Context, entities []*T) error {
+func (r *PostgresUpdateRepository[T, ID]) UpdateMultiple(ctx Context, entities []*T) error {
 	if len(entities) == 0 {
 		return nil
 	}
@@ -331,16 +319,15 @@ func (r *PostgresUpdateRepository[T]) UpdateMultiple(ctx Context, entities []*T)
 	return nil
 }
 
-// PostgresDeleteRepository - Implementation for full CRUD minus upsert
-type PostgresDeleteRepository[T BaseDeleteModel] struct {
-	PostgresUpdateRepository[T]
+type PostgresDeleteRepository[T BaseDeleteModel[ID], ID IDType] struct {
+	PostgresUpdateRepository[T, ID]
 }
 
-func NewPostgresDeleteRepository[T BaseDeleteModel]() *PostgresDeleteRepository[T] {
-	return &PostgresDeleteRepository[T]{}
+func NewPostgresDeleteRepository[T BaseDeleteModel[ID], ID IDType]() *PostgresDeleteRepository[T, ID] {
+	return &PostgresDeleteRepository[T, ID]{}
 }
 
-func (r *PostgresDeleteRepository[T]) Delete(ctx Context, entity *T) error {
+func (r *PostgresDeleteRepository[T, ID]) Delete(ctx Context, entity *T) error {
 	if err := (*entity).PreDelete(ctx); err != nil {
 		return err
 	}
@@ -379,7 +366,7 @@ func (r *PostgresDeleteRepository[T]) Delete(ctx Context, entity *T) error {
 	return (*entity).PostDelete(ctx)
 }
 
-func (r *PostgresDeleteRepository[T]) DeleteMultiple(ctx Context, entities []*T) error {
+func (r *PostgresDeleteRepository[T, ID]) DeleteMultiple(ctx Context, entities []*T) error {
 	if len(entities) == 0 {
 		return nil
 	}
@@ -420,16 +407,15 @@ func (r *PostgresDeleteRepository[T]) DeleteMultiple(ctx Context, entities []*T)
 	return nil
 }
 
-// PostgresRepository - Full CRUD implementation with upsert
-type PostgresRepository[T BaseCompleteModel] struct {
-	PostgresDeleteRepository[T]
+type PostgresRepository[T BaseCompleteModel[ID], ID IDType] struct {
+	PostgresDeleteRepository[T, ID]
 }
 
-func NewPostgresRepository[T BaseCompleteModel]() *PostgresRepository[T] {
-	return &PostgresRepository[T]{}
+func NewPostgresRepository[T BaseCompleteModel[ID], ID IDType]() *PostgresRepository[T, ID] {
+	return &PostgresRepository[T, ID]{}
 }
 
-func (r *PostgresRepository[T]) Upsert(ctx Context, entity *T) error {
+func (r *PostgresRepository[T, ID]) Upsert(ctx Context, entity *T) error {
 	conflictColumns := (*entity).OnConflict()
 
 	executor := getExecutor[T](ctx)

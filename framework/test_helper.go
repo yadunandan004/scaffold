@@ -43,9 +43,8 @@ func (j *JSONB) Scan(value interface{}) error {
 	return json.Unmarshal(bytes, j)
 }
 
-// TestSample is a test model that corresponds to test_samples table
 type TestSample struct {
-	BaseModelImpl
+	BaseModelImpl[uuid.UUID]
 	Name        string   `json:"name" orm:"column:name;not null"`
 	Description *string  `json:"description" orm:"column:description"`
 	Status      string   `json:"status" orm:"column:status;default:active"`
@@ -55,19 +54,18 @@ type TestSample struct {
 	Metadata    JSONB    `json:"metadata" orm:"column:metadata;type:jsonb;default:'{}'"`
 }
 
-// TestSampleRepository for testing
 type TestSampleRepository interface {
-	BaseRepository[TestSample]
+	BaseRepository[TestSample, uuid.UUID]
 	GetByName(ctx injContext.Context, name string) (*TestSample, error)
 }
 
 type testSampleRepositoryImpl struct {
-	*PostgresRepository[TestSample]
+	*PostgresRepository[TestSample, uuid.UUID]
 }
 
 func NewTestSampleRepository() TestSampleRepository {
 	return &testSampleRepositoryImpl{
-		PostgresRepository: NewPostgresRepository[TestSample](),
+		PostgresRepository: NewPostgresRepository[TestSample, uuid.UUID](),
 	}
 }
 
@@ -112,7 +110,7 @@ func (t TestSample) TrackerTableName() string {
 }
 
 func (t TestSample) SaveTracker() bool {
-	return false // Disable tracker for tests
+	return false
 }
 
 func (t TestSample) SaveInCache() bool {
@@ -124,7 +122,6 @@ func (t TestSample) Validate(ctx injContext.Context) error {
 }
 
 func (t TestSample) PreInsert(ctx injContext.Context) error {
-	// Value receiver can't modify - timestamps will be set by test
 	return nil
 }
 
@@ -162,12 +159,11 @@ func (t TestSample) MapToTracker(ctx injContext.Context) *Tracker {
 	}
 }
 
-// CreateSampleTable creates a sample entry for testing
 func CreateSampleTable(ctx injContext.Context) (*TestSample, error) {
 	description := "Test description"
 	amount := 100.50
 	sample := &TestSample{
-		BaseModelImpl: BaseModelImpl{
+		BaseModelImpl: BaseModelImpl[uuid.UUID]{
 			ID:        uuid.New(),
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
@@ -192,25 +188,20 @@ func CreateSampleTable(ctx injContext.Context) (*TestSample, error) {
 	return sample, nil
 }
 
-// IsPostgresEnabled returns true as TestSample is stored in PostgreSQL
 func (t TestSample) IsPostgresEnabled() bool {
 	return true
 }
 
-// IsClickhouseEnabled returns false as TestSample is not stored in ClickHouse
 func (t TestSample) IsClickhouseEnabled() bool {
 	return false
 }
 
-// OnConflict returns the fields to check for conflicts during upsert
 func (t TestSample) OnConflict() []string {
 	return []string{"name"}
 }
 
-// UpdateColumns returns nil for auto-generate behavior
 func (t TestSample) UpdateColumns() []string {
 	return nil
 }
 
-// Ensure TestSample implements BaseModel
-var _ BaseModel = (*TestSample)(nil)
+var _ BaseModel[uuid.UUID] = (*TestSample)(nil)

@@ -14,8 +14,8 @@ type Route struct {
 	Handler        HandlerFunc
 	ShouldSkipAuth bool
 	ShouldSkipTxn  bool
-	RateLimitRPS   int // Requests per second (0 = use default)
-	RateLimitBurst int // Burst size (0 = use default)
+	RateLimitRPS   int
+	RateLimitBurst int
 }
 
 type RouteGroup struct {
@@ -24,15 +24,15 @@ type RouteGroup struct {
 	RouteList []Route
 }
 
-type BaseReadRouter[T BaseReadModel] struct {
+type BaseReadRouter[T BaseReadModel[ID], ID IDType] struct {
 	Name       string
 	BasePath   string
-	Controller *BaseReadController[T]
+	Controller *BaseReadController[T, ID]
 	RouteList  []Route
 }
 
-func NewBaseReadRouter[T BaseReadModel](tableName string, controller *BaseReadController[T]) *BaseReadRouter[T] {
-	return &BaseReadRouter[T]{
+func NewBaseReadRouter[T BaseReadModel[ID], ID IDType](tableName string, controller *BaseReadController[T, ID]) *BaseReadRouter[T, ID] {
+	return &BaseReadRouter[T, ID]{
 		Name:       tableName,
 		BasePath:   fmt.Sprintf("/api/v1/%s", tableName),
 		Controller: controller,
@@ -40,7 +40,7 @@ func NewBaseReadRouter[T BaseReadModel](tableName string, controller *BaseReadCo
 	}
 }
 
-func (br *BaseReadRouter[T]) InitializeDefaultRoutes() {
+func (br *BaseReadRouter[T, ID]) InitializeDefaultRoutes() {
 	br.RouteList = append(br.RouteList,
 		Route{
 			Method:         request.HTTPMethod.Get(),
@@ -59,11 +59,11 @@ func (br *BaseReadRouter[T]) InitializeDefaultRoutes() {
 	)
 }
 
-func (br *BaseReadRouter[T]) AddRoute(route Route) {
+func (br *BaseReadRouter[T, ID]) AddRoute(route Route) {
 	br.RouteList = append(br.RouteList, route)
 }
 
-func (br *BaseReadRouter[T]) ToRouteGroup() RouteGroup {
+func (br *BaseReadRouter[T, ID]) ToRouteGroup() RouteGroup {
 	return RouteGroup{
 		Name:      br.Name,
 		BasePath:  br.BasePath,
@@ -71,15 +71,14 @@ func (br *BaseReadRouter[T]) ToRouteGroup() RouteGroup {
 	}
 }
 
-// BaseInsertRouter - Router for read + insert operations
-type BaseInsertRouter[T BaseInsertModel] struct {
-	BaseReadRouter[T]
-	Controller *BaseInsertController[T]
+type BaseInsertRouter[T BaseInsertModel[ID], ID IDType] struct {
+	BaseReadRouter[T, ID]
+	Controller *BaseInsertController[T, ID]
 }
 
-func NewBaseInsertRouter[T BaseInsertModel](tableName string, controller *BaseInsertController[T]) *BaseInsertRouter[T] {
-	return &BaseInsertRouter[T]{
-		BaseReadRouter: BaseReadRouter[T]{
+func NewBaseInsertRouter[T BaseInsertModel[ID], ID IDType](tableName string, controller *BaseInsertController[T, ID]) *BaseInsertRouter[T, ID] {
+	return &BaseInsertRouter[T, ID]{
+		BaseReadRouter: BaseReadRouter[T, ID]{
 			Name:       tableName,
 			BasePath:   fmt.Sprintf("/api/v1/%s", tableName),
 			Controller: &controller.BaseReadController,
@@ -89,7 +88,7 @@ func NewBaseInsertRouter[T BaseInsertModel](tableName string, controller *BaseIn
 	}
 }
 
-func (br *BaseInsertRouter[T]) InitializeDefaultRoutes() {
+func (br *BaseInsertRouter[T, ID]) InitializeDefaultRoutes() {
 	br.BaseReadRouter.InitializeDefaultRoutes()
 
 	br.RouteList = append(br.RouteList,
@@ -110,16 +109,15 @@ func (br *BaseInsertRouter[T]) InitializeDefaultRoutes() {
 	)
 }
 
-// BaseRouter - Full CRUD router
-type BaseRouter[T BaseModel] struct {
-	BaseInsertRouter[T]
-	Controller *BaseController[T]
+type BaseRouter[T BaseModel[ID], ID IDType] struct {
+	BaseInsertRouter[T, ID]
+	Controller *BaseController[T, ID]
 }
 
-func NewBaseRouter[T BaseModel](tableName string, controller *BaseController[T]) *BaseRouter[T] {
-	return &BaseRouter[T]{
-		BaseInsertRouter: BaseInsertRouter[T]{
-			BaseReadRouter: BaseReadRouter[T]{
+func NewBaseRouter[T BaseModel[ID], ID IDType](tableName string, controller *BaseController[T, ID]) *BaseRouter[T, ID] {
+	return &BaseRouter[T, ID]{
+		BaseInsertRouter: BaseInsertRouter[T, ID]{
+			BaseReadRouter: BaseReadRouter[T, ID]{
 				Name:       tableName,
 				BasePath:   fmt.Sprintf("/api/v1/%s", tableName),
 				Controller: &controller.BaseReadController,
@@ -131,7 +129,7 @@ func NewBaseRouter[T BaseModel](tableName string, controller *BaseController[T])
 	}
 }
 
-func (br *BaseRouter[T]) InitializeDefaultRoutes() {
+func (br *BaseRouter[T, ID]) InitializeDefaultRoutes() {
 	br.BaseInsertRouter.InitializeDefaultRoutes()
 
 	br.RouteList = append(br.RouteList,

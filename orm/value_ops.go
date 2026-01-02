@@ -82,10 +82,20 @@ func makeExtractID[T any](fieldOffsets []uintptr, fieldTypes []reflect.Type, pkI
 		ptr := uintptr(unsafe.Pointer(entity.(*T)))
 		fieldPtr := unsafe.Pointer(ptr + fieldOffsets[pkIndex])
 
-		if fieldTypes[pkIndex] == uuidType {
+		pkType := fieldTypes[pkIndex]
+		if pkType == uuidType {
 			return *(*uuid.UUID)(fieldPtr)
 		}
-		return *(*int64)(fieldPtr)
+		switch pkType.Kind() {
+		case reflect.String:
+			return *(*string)(fieldPtr)
+		case reflect.Int64:
+			return *(*int64)(fieldPtr)
+		case reflect.Int:
+			return *(*int)(fieldPtr)
+		default:
+			return *(*int64)(fieldPtr)
+		}
 	}
 }
 
@@ -97,17 +107,27 @@ func makeSetID[T any](fieldOffsets []uintptr, fieldTypes []reflect.Type, pkIndex
 		ptr := uintptr(unsafe.Pointer(entity.(*T)))
 		fieldPtr := unsafe.Pointer(ptr + fieldOffsets[pkIndex])
 
-		if fieldTypes[pkIndex] == uuidType {
+		pkType := fieldTypes[pkIndex]
+		if pkType == uuidType {
 			if uuidVal, ok := id.(uuid.UUID); ok {
 				*(*uuid.UUID)(fieldPtr) = uuidVal
 			}
-		} else if fieldTypes[pkIndex].Kind() == reflect.Int64 {
+			return
+		}
+		switch pkType.Kind() {
+		case reflect.String:
+			if strVal, ok := id.(string); ok {
+				*(*string)(fieldPtr) = strVal
+			}
+		case reflect.Int64:
 			if intVal, ok := id.(int64); ok {
 				*(*int64)(fieldPtr) = intVal
 			}
-		} else if fieldTypes[pkIndex].Kind() == reflect.Int {
+		case reflect.Int:
 			if intVal, ok := id.(int64); ok {
 				*(*int)(fieldPtr) = int(intVal)
+			} else if intVal, ok := id.(int); ok {
+				*(*int)(fieldPtr) = intVal
 			}
 		}
 	}

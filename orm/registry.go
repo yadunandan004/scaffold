@@ -21,6 +21,7 @@ type ModelMetadata struct {
 	ScanRows      func(rows *sql.Rows, dest interface{}) error
 	ExtractID     func(entity interface{}) interface{}
 	IDColumn      string
+	IDType        reflect.Type
 	SetID         func(entity interface{}, id interface{})
 }
 
@@ -112,8 +113,10 @@ func RegisterModel[T any]() {
 	insertColumns, insertIndices := filterInsertFields(fields, columnNames)
 
 	idColumn := "id"
+	var idType reflect.Type
 	if pkIndex >= 0 && pkIndex < len(columnNames) {
 		idColumn = columnNames[pkIndex]
+		idType = fieldTypes[pkIndex]
 	}
 
 	sqlTemplates := buildSQLTemplates(schema, tableName, insertColumns, columnNames, idColumn)
@@ -136,6 +139,7 @@ func RegisterModel[T any]() {
 		ExtractID:     extractID,
 		SetID:         setID,
 		IDColumn:      idColumn,
+		IDType:        idType,
 		ScanRow:       scanRow,
 		ScanRows:      scanRows,
 	}
