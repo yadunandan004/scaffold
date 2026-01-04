@@ -40,11 +40,7 @@ func (q *Query) QueryRow(query string, dest interface{}, args ...interface{}) er
 		return err
 	}
 	defer rows.Close()
-
-	if !rows.Next() {
-		return sql.ErrNoRows
-	}
-	return q.Scanner.ScanRaw(rows, dest)
+	return q.Scanner.ScanRow(rows, dest)
 }
 
 // QueryRows executes a query expecting multiple rows and scans into dest slice

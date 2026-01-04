@@ -100,6 +100,30 @@ func (s *Scanner) ScanRows(rows *sql.Rows, dest interface{}) error {
 // RawScanner provides flexible scanning for any type without metadata
 type RawScanner struct{}
 
+// ScanRow scans a single row into any destination type (struct, map, or primitive)
+// Advances rows cursor once and scans. Returns sql.ErrNoRows if no rows.
+func (r *RawScanner) ScanRow(rows *sql.Rows, dest interface{}) error {
+	if !rows.Next() {
+		return sql.ErrNoRows
+	}
+
+	destValue := reflect.ValueOf(dest)
+	if destValue.Kind() != reflect.Ptr {
+		return fmt.Errorf("destination must be a pointer")
+	}
+
+	destValue = destValue.Elem()
+
+	switch destValue.Kind() {
+	case reflect.Struct:
+		return r.scanStructRow(rows, destValue)
+	case reflect.Map:
+		return r.scanMapRow(rows, destValue)
+	default:
+		return rows.Scan(dest)
+	}
+}
+
 // ScanRaw scans a sql.Rows result into any destination type
 func (r *RawScanner) ScanRaw(rows *sql.Rows, dest interface{}) error {
 	destValue := reflect.ValueOf(dest)
@@ -198,12 +222,16 @@ func (r *RawScanner) scanSlice(rows *sql.Rows, destValue reflect.Value) error {
 	return rows.Err()
 }
 
-// scanMap scans a single row into a map
+// scanMap scans a single row into a map (calls rows.Next())
 func (r *RawScanner) scanMap(rows *sql.Rows, destValue reflect.Value) error {
 	if !rows.Next() {
 		return sql.ErrNoRows
 	}
+	return r.scanMapRow(rows, destValue)
+}
 
+// scanMapRow scans the current row into a map without calling rows.Next()
+func (r *RawScanner) scanMapRow(rows *sql.Rows, destValue reflect.Value) error {
 	columns, err := rows.Columns()
 	if err != nil {
 		return err
