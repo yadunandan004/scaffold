@@ -2,12 +2,11 @@ package framework
 
 import (
 	"fmt"
-	"github.com/yadunandan004/scaffold/store/postgres"
-	"reflect"
 	"strings"
 
 	"github.com/yadunandan004/scaffold/orm"
 	injContext "github.com/yadunandan004/scaffold/request"
+	"github.com/yadunandan004/scaffold/store/postgres"
 )
 
 type Context = injContext.Context
@@ -145,16 +144,6 @@ func (r *PostgresInsertRepository[T, ID]) Create(ctx Context, entity *T) error {
 		return err
 	}
 
-	if (*entity).SaveTracker() {
-		tracker := (*entity).MapToTracker(ctx)
-		if tracker != nil {
-			tableName := (*entity).TrackerTableName()
-			if err := r.createTracker(ctx, tracker, tableName); err != nil {
-				return fmt.Errorf("failed to create tracker: %w", err)
-			}
-		}
-	}
-
 	return (*entity).PostInsert(ctx)
 }
 
@@ -199,38 +188,6 @@ func (r *PostgresInsertRepository[T, ID]) CreateMultiple(ctx Context, entities [
 	return nil
 }
 
-func (r *PostgresInsertRepository[T, ID]) createTracker(ctx Context, tracker interface{}, tableName string) error {
-	if tracker == nil {
-		return nil
-	}
-
-	db := postgres.GetDB()
-	if db == nil {
-		return fmt.Errorf("no database connection")
-	}
-	val := reflect.ValueOf(tracker).Elem()
-	typ := val.Type()
-
-	var columns []string
-	var placeholders []string
-	var values []interface{}
-
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
-		if dbTag := field.Tag.Get("db"); dbTag != "" && dbTag != "-" {
-			columns = append(columns, dbTag)
-			placeholders = append(placeholders, fmt.Sprintf("$%d", len(values)+1))
-			values = append(values, val.Field(i).Interface())
-		}
-	}
-
-	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
-		tableName, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
-
-	_, err := db.ExecContext(ctx.GetRequestContext().GetCtx(), query, values...)
-	return err
-}
-
 type PostgresUpdateRepository[T BaseUpdateModel[ID], ID IDType] struct {
 	PostgresInsertRepository[T, ID]
 }
@@ -263,16 +220,6 @@ func (r *PostgresUpdateRepository[T, ID]) Update(ctx Context, entity *T) error {
 
 	if err != nil {
 		return err
-	}
-
-	if (*entity).SaveTracker() {
-		tracker := (*entity).MapToTracker(ctx)
-		if tracker != nil {
-			tableName := (*entity).TrackerTableName()
-			if err := r.createTracker(ctx, tracker, tableName); err != nil {
-				return fmt.Errorf("failed to create tracker: %w", err)
-			}
-		}
 	}
 
 	return (*entity).PostUpdate(ctx)
@@ -351,16 +298,6 @@ func (r *PostgresDeleteRepository[T, ID]) Delete(ctx Context, entity *T) error {
 
 	if err != nil {
 		return err
-	}
-
-	if (*entity).SaveTracker() {
-		tracker := (*entity).MapToTracker(ctx)
-		if tracker != nil {
-			tableName := (*entity).TrackerTableName()
-			if err := r.createTracker(ctx, tracker, tableName); err != nil {
-				return fmt.Errorf("failed to create tracker: %w", err)
-			}
-		}
 	}
 
 	return (*entity).PostDelete(ctx)

@@ -29,14 +29,14 @@ type PrometheusConfig struct {
 }
 
 func NewPrometheusProvider(ctx context.Context, cfg PrometheusConfig) (*PrometheusProvider, error) {
-	res, err := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
+	res, err := resource.New(ctx,
+		resource.WithAttributes(
 			semconv.ServiceName(cfg.ServiceName),
 			semconv.ServiceVersion(cfg.ServiceVersion),
 			attribute.String("environment", cfg.Environment),
 		),
+		resource.WithHost(),
+		resource.WithProcess(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource: %w", err)

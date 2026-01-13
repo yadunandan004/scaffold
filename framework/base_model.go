@@ -13,8 +13,6 @@ type IDType interface {
 
 type BaseReadModel[ID IDType] interface {
 	TableName() string
-	IsPostgresEnabled() bool
-	IsClickhouseEnabled() bool
 	SaveInCache() bool
 	GetID() ID
 }
@@ -24,9 +22,6 @@ type BaseInsertModel[ID IDType] interface {
 	Validate(ctx request.Context) error
 	PreInsert(ctx request.Context) error
 	PostInsert(ctx request.Context) error
-	SaveTracker() bool
-	MapToTracker(ctx request.Context) *Tracker
-	TrackerTableName() string
 	OnConflict() []string
 	UpdateColumns() []string
 }
@@ -76,10 +71,6 @@ func (b *BaseModelImpl[ID]) GetID() ID {
 	return b.ID
 }
 
-func (b *BaseModelImpl[ID]) SaveTracker() bool {
-	return false
-}
-
 func (b *BaseModelImpl[ID]) SaveInCache() bool {
 	return false
 }
@@ -119,22 +110,6 @@ func (b *BaseModelImpl[ID]) PostDelete(ctx request.Context) error {
 	return nil
 }
 
-func (b *BaseModelImpl[ID]) MapToTracker(ctx request.Context) *Tracker {
-	return nil
-}
-
-func (b *BaseModelImpl[ID]) TrackerTableName() string {
-	return ""
-}
-
-func (b *BaseModelImpl[ID]) IsPostgresEnabled() bool {
-	return true
-}
-
-func (b *BaseModelImpl[ID]) IsClickhouseEnabled() bool {
-	return false
-}
-
 func (b *BaseModelImpl[ID]) OnConflict() []string {
 	return []string{}
 }
@@ -149,14 +124,6 @@ func (b *BaseReadModelImpl[ID]) TableName() string {
 
 func (b *BaseReadModelImpl[ID]) GetID() ID {
 	return b.ID
-}
-
-func (b *BaseReadModelImpl[ID]) IsPostgresEnabled() bool {
-	return true
-}
-
-func (b *BaseReadModelImpl[ID]) IsClickhouseEnabled() bool {
-	return false
 }
 
 func (b *BaseReadModelImpl[ID]) SaveInCache() bool {
@@ -175,27 +142,10 @@ func (b *BaseInsertModelImpl[ID]) PostInsert(ctx request.Context) error {
 	return nil
 }
 
-func (b *BaseInsertModelImpl[ID]) SaveTracker() bool {
-	return false
-}
-
-func (b *BaseInsertModelImpl[ID]) MapToTracker(ctx request.Context) *Tracker {
-	return nil
-}
-
-func (b *BaseInsertModelImpl[ID]) TrackerTableName() string {
-	return ""
-}
-
 func (b *BaseInsertModelImpl[ID]) OnConflict() []string {
 	return []string{}
 }
 
 func (b *BaseInsertModelImpl[ID]) UpdateColumns() []string {
 	return nil
-}
-
-type Tracker struct {
-	Name   string `json:"name"`
-	Entity JSONB  `json:"entity" orm:"column:entity;type:jsonb"`
 }

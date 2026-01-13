@@ -105,14 +105,6 @@ func (t TestSample) GetID() uuid.UUID {
 	return t.ID
 }
 
-func (t TestSample) TrackerTableName() string {
-	return "test_samples_tracker"
-}
-
-func (t TestSample) SaveTracker() bool {
-	return false
-}
-
 func (t TestSample) SaveInCache() bool {
 	return true
 }
@@ -145,20 +137,6 @@ func (t TestSample) PostDelete(ctx injContext.Context) error {
 	return nil
 }
 
-func (t TestSample) MapToTracker(ctx injContext.Context) *Tracker {
-	return &Tracker{
-		Name: t.Name,
-		Entity: JSONB{
-			"id":     t.ID,
-			"action": "test_sample_update",
-			"changes": map[string]interface{}{
-				"status": t.Status,
-				"count":  t.Count,
-			},
-		},
-	}
-}
-
 func CreateSampleTable(ctx injContext.Context) (*TestSample, error) {
 	description := "Test description"
 	amount := 100.50
@@ -186,14 +164,6 @@ func CreateSampleTable(ctx injContext.Context) (*TestSample, error) {
 	}
 
 	return sample, nil
-}
-
-func (t TestSample) IsPostgresEnabled() bool {
-	return true
-}
-
-func (t TestSample) IsClickhouseEnabled() bool {
-	return false
 }
 
 func (t TestSample) OnConflict() []string {

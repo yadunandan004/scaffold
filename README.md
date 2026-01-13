@@ -669,7 +669,6 @@ scaffold/
 ├── request/        # Context interface and implementations
 ├── singleton/      # Singleton pattern helpers
 └── store/
-    ├── analytics/  # ClickHouse support
     ├── cache/      # Redis cache service
     ├── object_storage/  # S3-compatible storage
     └── postgres/   # PostgreSQL connection management

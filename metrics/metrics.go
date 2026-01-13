@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yadunandan004/scaffold/metrics/providers"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/yadunandan004/scaffold/metrics/providers"
 )
 
 var (
